@@ -1,8 +1,6 @@
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MobileApp.Api.Models;
