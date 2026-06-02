@@ -12,7 +12,8 @@ pr:
 variables:
   DOTNET_VERSION: '8.x'
   NODE_VERSION: '20.x'
-  AZURE_SUBSCRIPTION: 'sc-mobileapp-azure'   # Service Connection name in Azure DevOps
+  AZURE_SUBSCRIPTION_DEV: 'sc-mobileapp-dev'    # Service Connection scoped to rg-mobileapp-dev
+  AZURE_SUBSCRIPTION_PROD: 'sc-mobileapp-prod'  # Service Connection scoped to rg-mobileapp-prod
   RESOURCE_GROUP_DEV: 'rg-mobileapp-dev'
   RESOURCE_GROUP_PROD: 'rg-mobileapp-prod'
 
@@ -78,7 +79,7 @@ stages:
     - task: AzureCLI@2
       displayName: Bicep lint & what-if (dev)
       inputs:
-        azureSubscription: $(AZURE_SUBSCRIPTION)
+        azureSubscription: $(AZURE_SUBSCRIPTION_DEV)
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
@@ -113,7 +114,7 @@ stages:
           - task: AzureCLI@2
             displayName: Deploy Bicep
             inputs:
-              azureSubscription: $(AZURE_SUBSCRIPTION)
+              azureSubscription: $(AZURE_SUBSCRIPTION_DEV)
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
@@ -128,7 +129,7 @@ stages:
           - task: AzureFunctionApp@2
             displayName: Deploy Azure Functions
             inputs:
-              azureSubscription: $(AZURE_SUBSCRIPTION)
+              azureSubscription: $(AZURE_SUBSCRIPTION_DEV)
               appType: functionApp
               appName: func-mobileapp-dev
               package: $(Pipeline.Workspace)/api
@@ -155,7 +156,7 @@ stages:
           - task: AzureCLI@2
             displayName: Deploy Bicep
             inputs:
-              azureSubscription: $(AZURE_SUBSCRIPTION)
+              azureSubscription: $(AZURE_SUBSCRIPTION_PROD)
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
@@ -170,7 +171,7 @@ stages:
           - task: AzureFunctionApp@2
             displayName: Deploy Azure Functions
             inputs:
-              azureSubscription: $(AZURE_SUBSCRIPTION)
+              azureSubscription: $(AZURE_SUBSCRIPTION_PROD)
               appType: functionApp
               appName: func-mobileapp-prod
               package: $(Pipeline.Workspace)/api
