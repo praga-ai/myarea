@@ -55,7 +55,7 @@ stages:
       inputs:
         versionSpec: $(NODE_VERSION)
 
-    - script: npm ci
+    - script: npm install
       workingDirectory: mobile
       displayName: Install dependencies
 
