@@ -9,9 +9,6 @@ var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
     .ConfigureServices((context, services) =>
     {
-        services.AddApplicationInsightsTelemetryWorkerService();
-        services.ConfigureFunctionsApplicationInsights();
-
         var keyVaultUri = new Uri(
             Environment.GetEnvironmentVariable("KeyVaultUri")
             ?? throw new InvalidOperationException("KeyVaultUri is not set"));
