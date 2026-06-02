@@ -1,0 +1,24 @@
+# Mobile
+mobile/node_modules/
+mobile/.expo/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/ios/Pods/
+mobile/ios/build/
+*.keystore
+!debug.keystore
+
+# API
+api/bin/
+api/obj/
+api/local.settings.json
+
+# IaC
+infra/**/*.generated.json
+
+# General
+.env
+.env.*
+*.user
+.DS_Store
+Thumbs.db

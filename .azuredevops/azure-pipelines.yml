@@ -1,0 +1,176 @@
+trigger:
+  branches:
+    include:
+      - main
+      - 'release/*'
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  DOTNET_VERSION: '8.x'
+  NODE_VERSION: '20.x'
+  AZURE_SUBSCRIPTION: 'sc-mobileapp-azure'   # Service Connection name in Azure DevOps
+  RESOURCE_GROUP_DEV: 'rg-mobileapp-dev'
+  RESOURCE_GROUP_PROD: 'rg-mobileapp-prod'
+
+stages:
+
+# ─────────────────────────────────────────
+# Stage 1: Build & test everything
+# ─────────────────────────────────────────
+- stage: Build
+  displayName: Build & Test
+  jobs:
+  - job: BuildApi
+    displayName: 'API — build & test'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        version: $(DOTNET_VERSION)
+
+    - script: dotnet restore api/api.csproj
+      displayName: Restore NuGet
+
+    - script: dotnet build api/api.csproj --configuration Release --no-restore
+      displayName: Build
+
+    - script: dotnet publish api/api.csproj --configuration Release --output $(Build.ArtifactStagingDirectory)/api
+      displayName: Publish
+
+    - publish: $(Build.ArtifactStagingDirectory)/api
+      artifact: api
+
+  - job: BuildMobile
+    displayName: 'Mobile — lint & type-check'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: $(NODE_VERSION)
+
+    - script: npm ci
+      workingDirectory: mobile
+      displayName: Install dependencies
+
+    - script: npm run lint
+      workingDirectory: mobile
+      displayName: Lint
+
+    - script: npm run type-check
+      workingDirectory: mobile
+      displayName: TypeScript check
+
+    - script: npm test -- --ci --passWithNoTests
+      workingDirectory: mobile
+      displayName: Unit tests
+
+  - job: ValidateBicep
+    displayName: 'IaC — validate Bicep'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: AzureCLI@2
+      displayName: Bicep lint & what-if (dev)
+      inputs:
+        azureSubscription: $(AZURE_SUBSCRIPTION)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          az bicep build --file infra/main.bicep
+          az deployment group what-if \
+            --resource-group $(RESOURCE_GROUP_DEV) \
+            --template-file infra/main.bicep \
+            --parameters infra/parameters/dev.bicepparam \
+            --parameters sqlAdminPassword="$(SQL_ADMIN_PASSWORD_DEV)"
+      env:
+        SQL_ADMIN_PASSWORD_DEV: $(SQL_ADMIN_PASSWORD_DEV)   # pipeline secret variable
+
+# ─────────────────────────────────────────
+# Stage 2: Deploy to Dev
+# ─────────────────────────────────────────
+- stage: DeployDev
+  displayName: Deploy — Dev
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployInfraDev
+    displayName: Deploy infrastructure (dev)
+    environment: dev
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: Deploy Bicep
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az deployment group create \
+                  --resource-group $(RESOURCE_GROUP_DEV) \
+                  --template-file infra/main.bicep \
+                  --parameters infra/parameters/dev.bicepparam \
+                  --parameters sqlAdminPassword="$(SQL_ADMIN_PASSWORD_DEV)"
+            env:
+              SQL_ADMIN_PASSWORD_DEV: $(SQL_ADMIN_PASSWORD_DEV)
+
+          - task: AzureFunctionApp@2
+            displayName: Deploy Azure Functions
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              appType: functionApp
+              appName: func-mobileapp-dev
+              package: $(Pipeline.Workspace)/api
+
+# ─────────────────────────────────────────
+# Stage 3: Deploy to Prod (manual approval)
+# ─────────────────────────────────────────
+- stage: DeployProd
+  displayName: Deploy — Prod
+  dependsOn: DeployDev
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployInfraProd
+    displayName: Deploy infrastructure (prod)
+    environment: prod          # gate: add approval check in Azure DevOps Environments UI
+    pool:
+      vmImage: ubuntu-latest
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: Deploy Bicep
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az deployment group create \
+                  --resource-group $(RESOURCE_GROUP_PROD) \
+                  --template-file infra/main.bicep \
+                  --parameters infra/parameters/prod.bicepparam \
+                  --parameters sqlAdminPassword="$(SQL_ADMIN_PASSWORD_PROD)"
+            env:
+              SQL_ADMIN_PASSWORD_PROD: $(SQL_ADMIN_PASSWORD_PROD)
+
+          - task: AzureFunctionApp@2
+            displayName: Deploy Azure Functions
+            inputs:
+              azureSubscription: $(AZURE_SUBSCRIPTION)
+              appType: functionApp
+              appName: func-mobileapp-prod
+              package: $(Pipeline.Workspace)/api
