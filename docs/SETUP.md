@@ -195,66 +195,82 @@ git push -u origin main
    - Visibility: **Private**
    - Click **Create project**
 
-### 4.2 Create the OIDC Service Connection
+### 4.2 Create two service principals and service connections
 
-This lets Azure DevOps deploy to Azure without storing any password.
+Create two service principals — one per resource group. Each one has minimal permissions and cannot touch the other environment.
 
-1. In your Azure DevOps project → **Project Settings** (bottom-left gear icon)
-2. Under **Pipelines** → **Service connections**
-3. Click **New service connection**
-4. Choose **Azure Resource Manager** → Next
-5. Choose **Workload Identity Federation (automatic)** → Next
-6. Fill in:
-   - **Subscription:** select your Pay-as-you-go subscription
-   - **Resource group:** leave blank (we'll scope permissions manually for both groups)
-   - **Service connection name:** `sc-mobileapp-azure`
-7. Tick ✅ **Grant access permission to all pipelines**
-8. Click **Save**
-
-After saving, click on the service connection → **Manage Service Principal** (link in the details panel). This opens the Azure portal. Copy the **Application (client) ID** — you need it next.
-
-### 4.3 Grant the service connection access to both resource groups
-
-Back in PowerShell, replace `<SP_APP_ID>` with the Application ID you just copied and `<YOUR_SUBSCRIPTION_ID>` with your subscription ID:
+**Dev service principal:**
 
 ```powershell
-$SP_APP_ID = "<SP_APP_ID>"
-$SUB_ID    = "<YOUR_SUBSCRIPTION_ID>"
+$SUB_ID = "<YOUR_SUBSCRIPTION_ID>"
 
-# Contributor on dev resource group
-az role assignment create `
-  --assignee $SP_APP_ID `
+az ad sp create-for-rbac `
+  --name "sp-mobileapp-dev" `
   --role "Contributor" `
-  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-mobileapp-dev"
+  --scopes "/subscriptions/$SUB_ID/resourceGroups/rg-mobileapp-dev"
+```
 
-# Contributor on prod resource group
-az role assignment create `
-  --assignee $SP_APP_ID `
-  --role "Contributor" `
-  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-mobileapp-prod"
+**Copy the output** (save somewhere safe):
+```json
+{
+  "appId":        "...",     ← clientId
+  "password":     "...",     ← clientSecret (shown ONCE)
+  "tenant":       "..."      ← tenantId
+}
+```
 
-# User Access Administrator on dev (needed to assign Key Vault RBAC roles)
-az role assignment create `
-  --assignee $SP_APP_ID `
+Grant Key Vault RBAC permissions:
+
+```powershell
+$SP_DEV = "<appId from output above>"
+
+az role assignment create --assignee $SP_DEV `
   --role "User Access Administrator" `
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-mobileapp-dev"
+```
 
-# User Access Administrator on prod
-az role assignment create `
-  --assignee $SP_APP_ID `
+**Prod service principal:**
+
+Repeat the above with:
+```powershell
+az ad sp create-for-rbac `
+  --name "sp-mobileapp-prod" `
+  --role "Contributor" `
+  --scopes "/subscriptions/$SUB_ID/resourceGroups/rg-mobileapp-prod"
+```
+
+And grant Key Vault RBAC:
+
+```powershell
+$SP_PROD = "<appId from prod output>"
+
+az role assignment create --assignee $SP_PROD `
   --role "User Access Administrator" `
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-mobileapp-prod"
 ```
 
-Confirm:
+### 4.3 Create service connections in Azure DevOps
 
-```powershell
-az role assignment list --assignee $SP_APP_ID --query "[].{Role:roleDefinitionName, Scope:scope}" -o table
-```
+1. In Azure DevOps → **Project Settings** (bottom-left gear) → **Service connections**
+2. **New service connection** → **Azure Resource Manager** → **Next**
+3. Choose **Service principal (manual)** → **Next**
+4. Change the credential type to **Secret**
+5. Fill in for `sc-mobileapp-dev`:
 
-You should see 4 role assignments (2 × Contributor, 2 × User Access Administrator).
+| Field | Value |
+|---|---|
+| Subscription ID | your subscription ID |
+| Subscription name | Pay-As-You-Go |
+| Service Principal Id | `appId` from dev output |
+| Service principal key | `password` from dev output |
+| Tenant ID | `tenant` from dev output |
+| Service connection name | `sc-mobileapp-dev` |
 
-✅ **Checkpoint:** Service connection exists in Azure DevOps, 4 role assignments visible.
+6. Click **Verify** → ✅ → **Save**
+
+7. Repeat for `sc-mobileapp-prod` using the prod JSON values and name it `sc-mobileapp-prod`
+
+✅ **Checkpoint:** Both service connections verified and saved, each scoped to its own resource group only.
 
 ---
 
@@ -408,7 +424,7 @@ az consumption usage list --top 10 --query "[].{Service:instanceName, Cost:preta
 ## Security checklist
 
 - [ ] No secrets committed to git (`.gitignore` covers `local.settings.json`)
-- [ ] Pipeline uses OIDC (Workload Identity Federation) — no stored service principal secret
+- [ ] Pipeline uses scoped service principals — each can only touch its own resource group
 - [ ] Function App uses Managed Identity — no SQL password in app settings
 - [ ] Key Vault uses RBAC, not access policies
 - [ ] Key Vault soft-delete 90 days + purge protection enabled

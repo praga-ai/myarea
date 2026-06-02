@@ -43,10 +43,10 @@ resource database 'Microsoft.Sql/servers/databases@2023-05-01-preview' = {
     capacity: 1
   }
   properties: {
-    autoPauseDelay: 60      // serverless — pauses after 1 h idle (dev cost saving)
-    minCapacity: 0.5
-    zoneRedundant: false
     collation: 'SQL_Latin1_General_CP1_CI_AS'
+    autoPauseDelay: 60
+    minCapacity: 1
+    zoneRedundant: false
   }
 }
 
