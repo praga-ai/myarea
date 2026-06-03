@@ -47,13 +47,22 @@ stages:
       artifact: api
 
   - job: BuildMobile
-    displayName: 'Mobile — lint & type-check'
+    displayName: 'Mobile — build Android APK'
     pool:
       vmImage: ubuntu-latest
     steps:
     - task: NodeTool@0
       inputs:
         versionSpec: $(NODE_VERSION)
+
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
+    - script: npm install -g react-native-cli
+      displayName: Install React Native CLI
 
     - script: npm install
       workingDirectory: mobile
@@ -70,6 +79,16 @@ stages:
     - script: npm test -- --ci --passWithNoTests
       workingDirectory: mobile
       displayName: Unit tests
+
+    - script: cd mobile && npx react-native doctor
+      displayName: Check React Native setup
+
+    - script: cd mobile/android && chmod +x gradlew && ./gradlew assembleDebug
+      displayName: Build Android APK (debug)
+
+    - publish: $(System.DefaultWorkingDirectory)/mobile/android/app/build/outputs/apk/debug
+      artifact: android-apk
+      displayName: Publish Android APK
 
   - job: ValidateBicep
     displayName: 'IaC — validate Bicep'
