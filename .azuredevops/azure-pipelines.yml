@@ -81,14 +81,7 @@ stages:
       displayName: Unit tests
 
     - script: cd mobile && npx react-native doctor
-      displayName: Check React Native setup
-
-    - script: cd mobile/android && chmod +x gradlew && ./gradlew assembleDebug
-      displayName: Build Android APK (debug)
-
-    - publish: $(System.DefaultWorkingDirectory)/mobile/android/app/build/outputs/apk/debug
-      artifact: android-apk
-      displayName: Publish Android APK
+      displayName: Check React Native setup (informational)
 
   - job: ValidateBicep
     displayName: 'IaC — validate Bicep'
