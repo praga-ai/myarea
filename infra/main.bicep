@@ -11,7 +11,7 @@ param sqlAdminLogin string
 @secure()
 param sqlAdminPassword string
 
-var prefix = 'mobileapp-${environment}'
+var prefix = 'mobileapp-cs-${environment}'  // Add your initials to make names unique
 var tags = { environment: environment, project: 'MobileApp' }
 
 module keyvault 'modules/keyvault.bicep' = {
