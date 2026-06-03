@@ -77,20 +77,19 @@ stages:
       vmImage: ubuntu-latest
     steps:
     - task: AzureCLI@2
-      displayName: Bicep lint & what-if (dev)
+      displayName: Bicep what-if (dev)
       inputs:
         azureSubscription: $(AZURE_SUBSCRIPTION_DEV)
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
-          az bicep build --file infra/main.bicep
           az deployment group what-if \
             --resource-group $(RESOURCE_GROUP_DEV) \
             --template-file infra/main.bicep \
             --parameters infra/parameters/dev.bicepparam \
             --parameters sqlAdminPassword="$(SQL_ADMIN_PASSWORD_DEV)"
       env:
-        SQL_ADMIN_PASSWORD_DEV: $(SQL_ADMIN_PASSWORD_DEV)   # pipeline secret variable
+        SQL_ADMIN_PASSWORD_DEV: $(SQL_ADMIN_PASSWORD_DEV)
 
 # ─────────────────────────────────────────
 # Stage 2: Deploy to Dev
