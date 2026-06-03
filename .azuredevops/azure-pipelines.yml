@@ -47,7 +47,7 @@ stages:
       artifact: api
 
   - job: BuildMobile
-    displayName: 'Mobile — build Android APK'
+    displayName: 'Mobile — validate Expo app'
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -55,14 +55,8 @@ stages:
       inputs:
         versionSpec: $(NODE_VERSION)
 
-    - task: JavaToolInstaller@0
-      inputs:
-        versionSpec: '17'
-        jdkArchitectureOption: 'x64'
-        jdkSourceOption: 'PreInstalled'
-
-    - script: npm install -g react-native-cli
-      displayName: Install React Native CLI
+    - script: npm install -g eas-cli
+      displayName: Install EAS CLI
 
     - script: npm install
       workingDirectory: mobile
@@ -80,8 +74,8 @@ stages:
       workingDirectory: mobile
       displayName: Unit tests
 
-    - script: cd mobile && npx react-native doctor
-      displayName: Check React Native setup (informational)
+    - script: cd mobile && npx expo doctor
+      displayName: Check Expo setup
 
   - job: ValidateBicep
     displayName: 'IaC — validate Bicep'
