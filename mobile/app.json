@@ -3,35 +3,16 @@
     "name": "MobileApp",
     "slug": "mobileapp",
     "version": "1.0.0",
-    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTabletMode": true
-    },
+    "platforms": ["android"],
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "329d3a7f-174b-4e15-aef6-53bbd97a63b7"
-      }
-    },
-    "owner": "c.saravanaraja"
+      "package": "com.mobileapp"
+    }
   }
 }
