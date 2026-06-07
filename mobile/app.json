@@ -4,6 +4,14 @@
     "slug": "mobileapp",
     "version": "1.0.0",
     "orientation": "portrait",
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
     "platforms": [
       "android"
     ],
