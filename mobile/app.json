@@ -27,5 +27,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "eas": {
+        "projectId": "329d3a7f-174b-4e15-aef6-53bbd97a63b7"
+      }
+    },
+    "owner": "c.saravanaraja"
   }
 }
