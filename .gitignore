@@ -1,10 +1,8 @@
 # Mobile
 mobile/node_modules/
 mobile/.expo/
-mobile/android/build/
-mobile/android/.gradle/
-mobile/ios/Pods/
-mobile/ios/build/
+mobile/android/
+mobile/ios/
 *.keystore
 !debug.keystore
 
