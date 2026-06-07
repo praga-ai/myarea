@@ -70,11 +70,11 @@ stages:
       workingDirectory: mobile
       displayName: Unit tests
 
-    - script: npx eas build --platform android --non-interactive --skip-credentials-check
+    - script: npx eas build --platform android --non-interactive
       workingDirectory: mobile
       displayName: Build Android APK with EAS
       env:
-        EAS_TOKEN: $(EAS_TOKEN)
+        EXPO_TOKEN: $(EXPO_TOKEN)
         EAS_SKIP_AUTO_FINGERPRINT: 1
 
     - task: PublishBuildArtifacts@1
