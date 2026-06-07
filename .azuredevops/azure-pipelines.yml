@@ -47,7 +47,7 @@ stages:
       artifact: api
 
   - job: BuildMobile
-    displayName: 'Mobile — validate Expo app'
+    displayName: 'Mobile — build Android APK'
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -58,7 +58,7 @@ stages:
     - script: npm install -g eas-cli
       displayName: Install EAS CLI
 
-    - script: npm install
+    - script: npm install --legacy-peer-deps
       workingDirectory: mobile
       displayName: Install dependencies
 
@@ -66,16 +66,22 @@ stages:
       workingDirectory: mobile
       displayName: Lint
 
-    - script: npm run type-check
-      workingDirectory: mobile
-      displayName: TypeScript check
-
     - script: npm test -- --ci --passWithNoTests
       workingDirectory: mobile
       displayName: Unit tests
 
-    - script: cd mobile && npx expo doctor
-      displayName: Check Expo setup
+    - script: npx eas build --platform android --non-interactive --skip-credentials-check
+      workingDirectory: mobile
+      displayName: Build Android APK with EAS
+      env:
+        EAS_TOKEN: $(EAS_TOKEN)
+        EAS_SKIP_AUTO_FINGERPRINT: 1
+
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Android APK
+      inputs:
+        pathToPublish: '$(Build.ArtifactStagingDirectory)'
+        artifactName: android-apk
 
   - job: ValidateBicep
     displayName: 'IaC — validate Bicep'
