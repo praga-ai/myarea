@@ -8,8 +8,7 @@
       "android"
     ],
     "android": {
-      "package": "com.mobileapp",
-      "splashScreenBackgroundColor": "#ffffff"
+      "package": "com.mobileapp"
     },
     "extra": {
       "eas": {
