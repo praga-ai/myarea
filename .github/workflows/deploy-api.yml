@@ -1,0 +1,72 @@
+name: Deploy API to Azure Functions
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_FUNCTIONAPP_NAME: func-mobileapp-cs-dev
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './api'
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+    environment: production
+
+    steps:
+      - name: 'Checkout GitHub Action'
+        uses: actions/checkout@v3
+
+      - name: 'Setup DotNet ${{ env.DOTNET_VERSION }} Environment'
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 'Restore project dependencies'
+        shell: pwsh
+        run: |
+          pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet restore
+          popd
+
+      - name: 'Build project'
+        shell: pwsh
+        run: |
+          pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet build --configuration Release --output ./output
+          popd
+
+      - name: 'Run tests'
+        shell: pwsh
+        run: |
+          pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet test --configuration Release --no-build
+          popd
+
+      - name: 'Publish to Azure Functions'
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false
+
+      - name: 'Verify Deployment'
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 10
+          $healthUrl = "https://${{ env.AZURE_FUNCTIONAPP_NAME }}.azurewebsites.net/api/health"
+          Write-Host "Testing health endpoint: $healthUrl"
+          try {
+            $response = Invoke-WebRequest -Uri $healthUrl -ErrorAction Stop
+            Write-Host "✓ Health check passed: $($response.StatusCode)"
+          } catch {
+            Write-Host "✗ Health check failed: $_"
+            exit 1
+          }

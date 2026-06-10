@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "centralindia"
+    },
+    "appName": {
+      "value": "survey-admin"
+    },
+    "environment": {
+      "value": "dev"
+    },
+    "uniqueSuffix": {
+      "value": "cs"
+    },
+    "tier": {
+      "value": "Standard"
+    },
+    "skuName": {
+      "value": "S1"
+    }
+  }
+}

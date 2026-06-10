@@ -1,68 +1,78 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginScreen from './screens/LoginScreen';
+import SurveyScreen from './screens/SurveyScreen';
 
-export default function App() {
-  const [status, setStatus] = useState('Loading...');
-  const [timestamp, setTimestamp] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const Stack = createNativeStackNavigator();
 
-  useEffect(() => {
-    fetch('https://func-mobileapp-cs-dev.azurewebsites.net/api/health')
-      .then((r) => r.json())
-      .then((data) => {
-        setStatus(data.status);
-        setTimestamp(data.timestamp);
-        setError(null);
-      })
-      .catch((err) => {
-        setStatus('❌ API Error');
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+function AppNavigator() {
+  const { isAuthenticated, loading, user, logout } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B1538" />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <>
-          <Text style={styles.title}>Mobile App</Text>
-          <Text style={styles.status}>{status}</Text>
-          {timestamp && <Text style={styles.small}>{timestamp}</Text>}
-          {error && <Text style={styles.error}>{error}</Text>}
-        </>
-      )}
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#8B1538',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        {!isAuthenticated ? (
+          <Stack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
+        ) : (
+          <Stack.Screen
+            name="Survey"
+            component={SurveyScreen}
+            options={{
+              title: `Survey - ${user?.fullName || 'Surveyor'}`,
+              headerRight: () => (
+                <View style={styles.logoutButton}>
+                  {/* Logout button can be added here */}
+                </View>
+              ),
+            }}
+          />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppNavigator />
+    </AuthProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f5f5f5',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  status: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
-  },
-  small: {
-    fontSize: 12,
-    color: '#666',
-  },
-  error: {
-    fontSize: 14,
-    color: '#d32f2f',
-    marginTop: 10,
+  logoutButton: {
+    marginRight: 15,
   },
 });
