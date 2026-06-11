@@ -1,0 +1,41 @@
+apply plugin: "com.android.application"
+apply plugin: "com.facebook.react"
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+
+    compileSdkVersion rootProject.ext.compileSdkVersion
+
+    namespace "com.myarea.surveyor"
+    defaultConfig {
+        applicationId "com.myarea.surveyor"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0.0"
+        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", "false"
+        buildConfigField "boolean", "IS_HERMES_ENABLED", "false"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.10.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.facebook.react:react-android'
+}
