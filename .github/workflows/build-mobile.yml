@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: 'mobile/package-lock.json'
 
@@ -72,67 +72,15 @@ jobs:
           draft: false
           prerelease: false
 
-  build-ios:
-    name: Build iOS IPA
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: 'mobile/package-lock.json'
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: 'mobile/ios'
-
-      - name: Install dependencies
-        run: |
-          cd mobile
-          npm ci
-          cd ios
-          pod install || pod install --repo-update
-
-      - name: Build iOS
-        run: |
-          cd mobile/ios
-          xcodebuild -workspace MyAreaSurveyor.xcworkspace \
-            -scheme MyAreaSurveyor \
-            -configuration Release \
-            -derivedDataPath build \
-            -archivePath build/MyAreaSurveyor.xcarchive \
-            archive
-        continue-on-error: true
-
-      - name: Export IPA
-        if: success()
-        run: |
-          cd mobile
-          xcodebuild -exportArchive \
-            -archivePath ios/build/MyAreaSurveyor.xcarchive \
-            -exportOptionsPlist ios/ExportOptions.plist \
-            -exportPath ios/build/ipa
-        continue-on-error: true
-
-      - name: Upload IPA artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: mobile/ios/build/ipa/
-          retention-days: 30
+  # iOS build temporarily disabled - will be added when native iOS project is ready
+  # build-ios:
+  #   name: Build iOS IPA
+  #   runs-on: macos-latest
+  #   ...commented out...
 
   notify:
     name: Send Notifications
-    needs: [build-android, build-ios]
+    needs: [build-android]
     runs-on: ubuntu-latest
     if: always()
 
@@ -140,10 +88,10 @@ jobs:
       - name: Determine build status
         id: status
         run: |
-          if [ "${{ needs.build-android.result }}" == "success" ] && [ "${{ needs.build-ios.result }}" == "success" ]; then
-            echo "BUILD_STATUS=✅ ALL BUILDS SUCCESSFUL" >> $GITHUB_OUTPUT
+          if [ "${{ needs.build-android.result }}" == "success" ]; then
+            echo "BUILD_STATUS=✅ ANDROID BUILD SUCCESSFUL" >> $GITHUB_OUTPUT
           else
-            echo "BUILD_STATUS=⚠️ SOME BUILDS FAILED" >> $GITHUB_OUTPUT
+            echo "BUILD_STATUS=❌ ANDROID BUILD FAILED" >> $GITHUB_OUTPUT
           fi
 
       - name: Send Slack Notification
@@ -171,5 +119,6 @@ jobs:
           echo "### Android Build"
           echo "Status: ${{ needs.build-android.result }}"
           echo ""
-          echo "### iOS Build"
-          echo "Status: ${{ needs.build-ios.result }}"
+          echo "### Build Details"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
