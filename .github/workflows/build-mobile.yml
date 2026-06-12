@@ -15,6 +15,8 @@ jobs:
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
@@ -40,26 +42,25 @@ jobs:
 
       - name: Build APK
         run: |
-          cd mobile
-          npm run build:android
-        continue-on-error: true
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: mobile/android/app/build/outputs/apk/release/
+          path: mobile/android/app/build/outputs/apk/release/*.apk
           retention-days: 30
+          if-no-files-found: error
 
       - name: Create Release (main branch only)
-        if: github.ref == 'refs/heads/main' && success()
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: android-v${{ github.run_number }}
-          release_name: Android Release v${{ github.run_number }}
+          name: Android Release v${{ github.run_number }}
+          files: mobile/android/app/build/outputs/apk/release/*.apk
           body: |
             Android APK build for MyArea Surveyor App
 
@@ -67,10 +68,6 @@ jobs:
             - Branch: main
             - Commit: ${{ github.sha }}
             - Build: #${{ github.run_number }}
-
-            APK file available in artifacts
-          draft: false
-          prerelease: false
 
   # iOS build temporarily disabled - will be added when native iOS project is ready
   # build-ios:

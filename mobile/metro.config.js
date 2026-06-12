@@ -5,10 +5,6 @@ const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
  * https://facebook.github.io/metro/docs/configuration
  */
 const config = {
-  project: {
-    ios: {},
-    android: {},
-  },
   transformer: {
     getTransformOptions: async () => ({
       transform: {
