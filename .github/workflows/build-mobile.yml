@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd mobile
-          npm ci
+          npm ci --legacy-peer-deps
 
       - name: Build APK
         run: |
