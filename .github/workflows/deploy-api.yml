@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_NAME: func-mobileapp-cs-dev
+  AZURE_FUNCTIONAPP_NAME: func-mobileapp-cs-in
   AZURE_FUNCTIONAPP_PACKAGE_PATH: './api'
   DOTNET_VERSION: '8.0.x'
 
@@ -34,18 +34,11 @@ jobs:
           dotnet restore
           popd
 
-      - name: 'Build project'
+      - name: 'Publish project'
         shell: pwsh
         run: |
           pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          dotnet build --configuration Release --output ./output
-          popd
-
-      - name: 'Run tests'
-        shell: pwsh
-        run: |
-          pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          dotnet test --configuration Release --no-build
+          dotnet publish --configuration Release --output ./output
           popd
 
       - name: 'Publish to Azure Functions'

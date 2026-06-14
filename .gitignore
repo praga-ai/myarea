@@ -9,6 +9,9 @@ mobile/ios/
 # API
 api/bin/
 api/obj/
+api/output/
+api/publish_audit/
+api/api-audit.zip
 api/local.settings.json
 
 # IaC

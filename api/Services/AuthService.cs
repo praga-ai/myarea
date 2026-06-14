@@ -145,7 +145,7 @@ public class AuthService
     }
 
     // Login user
-    public async Task<(bool success, string message, string token, UserDto? user)> LoginAsync(LoginRequest request)
+    public async Task<(bool success, string message, string token, UserDto? user)> LoginAsync(LoginRequest request, string? ipAddress = null, string? userAgent = null)
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             return (false, "Email and password are required", string.Empty, null);
@@ -176,14 +176,23 @@ public class AuthService
                         var roleName = reader["RoleName"].ToString() ?? string.Empty;
 
                         if (!isActive)
+                        {
+                            await LogAuditAsync(userId, "Login", "Failed", "Account inactive", ipAddress, userAgent);
                             return (false, "User account is inactive", string.Empty, null);
+                        }
 
                         // Verify password
                         if (!VerifyPassword(request.Password, passwordHash))
+                        {
+                            await LogAuditAsync(userId, "Login", "Failed", "Invalid password", ipAddress, userAgent);
                             return (false, "Invalid email or password", string.Empty, null);
+                        }
 
                         // Update last login
                         await UpdateLastLoginAsync(userId);
+
+                        // Audit successful login
+                        await LogAuditAsync(userId, "Login", "Success", "Login successful", ipAddress, userAgent);
 
                         // Generate token
                         var token = GenerateJwtToken(userId, email, roleName);
@@ -314,6 +323,40 @@ public class AuthService
             }
         }
     }
+
+    // Write an entry to UserAuditLog. Best-effort: never throws, so it can't break the calling operation.
+    public async Task LogAuditAsync(int userId, string action, string status,
+        string? description = null, string? ipAddress = null, string? userAgent = null)
+    {
+        try
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var command = new SqlCommand(
+                    @"INSERT INTO UserAuditLog (UserId, Action, IpAddress, UserAgent, Status, Description)
+                      VALUES (@userId, @action, @ipAddress, @userAgent, @status, @description)",
+                    connection))
+                {
+                    command.Parameters.AddWithValue("@userId", userId);
+                    command.Parameters.AddWithValue("@action", Trunc(action, 100) ?? string.Empty);
+                    command.Parameters.AddWithValue("@ipAddress", (object?)Trunc(ipAddress, 50) ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@userAgent", (object?)userAgent ?? DBNull.Value);
+                    command.Parameters.AddWithValue("@status", Trunc(status, 50) ?? string.Empty);
+                    command.Parameters.AddWithValue("@description", (object?)Trunc(description, 500) ?? DBNull.Value);
+                    await command.ExecuteNonQueryAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Audit logging must never break the primary operation (login, approval, etc.)
+            Console.WriteLine($"[Audit] Failed to write UserAuditLog: {ex.Message}");
+        }
+    }
+
+    private static string? Trunc(string? s, int max)
+        => string.IsNullOrEmpty(s) ? s : (s.Length > max ? s.Substring(0, max) : s);
 
     // Helper methods for token encoding
     private string GenerateSignature(string message)
@@ -588,6 +631,9 @@ public class AuthService
                 command.Parameters.AddWithValue("@approvedBy", "system-admin");
                 await command.ExecuteNonQueryAsync();
             }
+
+            // Audit the account creation
+            await LogAuditAsync(userId, "AccountApproved", "Success", "Account created via registration approval");
 
             // Get the created user
             var user = await GetUserByIdAsync(userId);

@@ -36,7 +36,15 @@ public class LoginFunction
                 throw new InvalidOperationException("SqlConnectionString not configured");
 
             var authService = new AuthService(connectionString);
-            var (success, message, token, user) = await authService.LoginAsync(loginRequest);
+
+            // Capture client IP + user agent for the audit log
+            var fwd = req.Headers["X-Forwarded-For"].ToString();
+            string? ipAddress = !string.IsNullOrWhiteSpace(fwd)
+                ? fwd.Split(',')[0].Trim()
+                : req.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            var userAgent = req.Headers["User-Agent"].ToString();
+
+            var (success, message, token, user) = await authService.LoginAsync(loginRequest, ipAddress, userAgent);
 
             if (success)
             {
