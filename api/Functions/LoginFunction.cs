@@ -37,11 +37,18 @@ public class LoginFunction
 
             var authService = new AuthService(connectionString);
 
-            // Capture client IP + user agent for the audit log
-            var fwd = req.Headers["X-Forwarded-For"].ToString();
-            string? ipAddress = !string.IsNullOrWhiteSpace(fwd)
-                ? fwd.Split(',')[0].Trim()
-                : req.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            // Capture client IP + user agent for the audit log.
+            // Azure surfaces the client IP via X-Forwarded-For (may include :port) or X-Azure-ClientIP.
+            string? ipAddress = null;
+            foreach (var h in new[] { "X-Forwarded-For", "X-Azure-ClientIP", "X-Client-IP" })
+            {
+                var v = req.Headers[h].ToString();
+                if (!string.IsNullOrWhiteSpace(v)) { ipAddress = v.Split(',')[0].Trim(); break; }
+            }
+            ipAddress ??= req.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            // strip :port for IPv4 form "1.2.3.4:5678" (single colon = IPv4, not IPv6)
+            if (!string.IsNullOrEmpty(ipAddress) && ipAddress.Count(c => c == ':') == 1)
+                ipAddress = ipAddress.Split(':')[0];
             var userAgent = req.Headers["User-Agent"].ToString();
 
             var (success, message, token, user) = await authService.LoginAsync(loginRequest, ipAddress, userAgent);
