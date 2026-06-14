@@ -47,6 +47,9 @@ jobs:
           name: api-package
           path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output
           if-no-files-found: error
+          # .azurefunctions is a hidden folder required by the .NET isolated host;
+          # upload-artifact@v4 drops hidden files unless this is set.
+          include-hidden-files: true
 
   # 2) Staging deploy — gated by the "staging" environment (manual approval always).
   #    Runs for both PR commits and main pushes.
