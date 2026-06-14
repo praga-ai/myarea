@@ -1,0 +1,115 @@
+name: API CI/CD
+
+# Build on every PR commit and on merge to main.
+# Deploy flow:  build -> staging (manual approval) -> production (manual approval, main only)
+on:
+  pull_request:
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './api'
+  # Current Azure setup is treated as STAGING. Production infra does not exist yet.
+  STAGING_FUNCTIONAPP_NAME: func-mobileapp-cs-in
+  PRODUCTION_FUNCTIONAPP_NAME: func-mobileapp-cs-prod
+
+jobs:
+  # 1) Build runs for every trigger (PR commit, main push, manual).
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish
+        shell: pwsh
+        run: |
+          pushd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet publish --configuration Release --output ./output
+          popd
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-package
+          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output
+          if-no-files-found: error
+          # .azurefunctions is a hidden folder required by the .NET isolated host;
+          # upload-artifact@v4 drops hidden files unless this is set.
+          include-hidden-files: true
+
+  # 2) Staging deploy — gated by the "staging" environment (manual approval always).
+  #    Runs for both PR commits and main pushes.
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    runs-on: windows-latest
+    environment: staging
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-package
+          path: ./output
+
+      - name: Deploy to Staging Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.STAGING_FUNCTIONAPP_NAME }}
+          package: ./output
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false
+
+      - name: Health check (with retry for cold start)
+        shell: pwsh
+        run: |
+          $url = "https://${{ env.STAGING_FUNCTIONAPP_NAME }}.azurewebsites.net/api/health"
+          Write-Host "Checking $url"
+          $ok = $false
+          for ($i = 1; $i -le 6; $i++) {
+            try {
+              $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 60
+              if ($r.StatusCode -eq 200) { Write-Host "Health OK on attempt $i"; $ok = $true; break }
+            } catch { Write-Host "Attempt $i not ready: $($_.Exception.Message)" }
+            Start-Sleep -Seconds 20
+          }
+          if (-not $ok) { throw "Staging health check failed after retries" }
+
+  # 3) Production deploy — only on main, gated by the "production" environment (manual approval always).
+  #    Skipped on PRs / feature branches. Production infra is intentionally not created yet:
+  #    create the prod Function App + set AZURE_FUNCTIONAPP_PUBLISH_PROFILE_PROD before approving.
+  deploy-production:
+    name: Deploy to Production
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    environment: production
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-package
+          path: ./output
+
+      - name: Deploy to Production Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.PRODUCTION_FUNCTIONAPP_NAME }}
+          package: ./output
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE_PROD }}
+          scm-do-build-during-deployment: false
+          enable-oryx-build: false

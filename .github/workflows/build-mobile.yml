@@ -1,0 +1,121 @@
+name: Build React Native App
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-mobile.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'mobile/**'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: |
+          cd mobile
+          npm ci --legacy-peer-deps
+
+      - name: Build APK
+        run: |
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create Release (main branch only)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ github.run_number }}
+          name: Android Release v${{ github.run_number }}
+          files: mobile/android/app/build/outputs/apk/release/*.apk
+          body: |
+            Android APK build for MyArea Surveyor App
+
+            **Build Details:**
+            - Branch: main
+            - Commit: ${{ github.sha }}
+            - Build: #${{ github.run_number }}
+
+  # iOS build temporarily disabled - will be added when native iOS project is ready
+  # build-ios:
+  #   name: Build iOS IPA
+  #   runs-on: macos-latest
+  #   ...commented out...
+
+  notify:
+    name: Send Notifications
+    needs: [build-android]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Determine build status
+        id: status
+        run: |
+          if [ "${{ needs.build-android.result }}" == "success" ]; then
+            echo "BUILD_STATUS=✅ ANDROID BUILD SUCCESSFUL" >> $GITHUB_OUTPUT
+          else
+            echo "BUILD_STATUS=❌ ANDROID BUILD FAILED" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack Notification
+        if: false  # Disable until Slack webhook is configured
+        uses: slackapi/slack-github-action@v2
+        with:
+          payload: |
+            {
+              "text": "${{ steps.status.outputs.BUILD_STATUS }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*MyArea Surveyor Mobile App - Build Status*\n${{ steps.status.outputs.BUILD_STATUS }}\n*Android*: ${{ needs.build-android.result }}\n*iOS*: ${{ needs.build-ios.result }}"
+                  }
+                }
+              ]
+            }
+
+      - name: Build Summary
+        run: |
+          echo "## 📱 Mobile App Build Results"
+          echo ""
+          echo "### Android Build"
+          echo "Status: ${{ needs.build-android.result }}"
+          echo ""
+          echo "### Build Details"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"

@@ -1,0 +1,62 @@
+# Expo (removed from project)
+.expo/
+.expo-shared/
+
+# Node
+node_modules/
+npm-debug.*
+.npm
+
+# Android build artifacts
+android/app/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# iOS
+ios/Pods/
+ios/Podfile.lock
+ios/build/
+ios/*.xcworkspace/
+*.ipa
+*.xcarchive
+DerivedData/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Build
+build/
+dist/
+coverage/
+
+# Testing
+.jest_cache/
+test-results/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Metro
+.metro-health-check*
